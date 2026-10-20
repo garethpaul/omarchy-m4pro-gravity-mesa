@@ -148,6 +148,22 @@ bool agx_apple9_prepare_draw(struct agx_device *dev, struct agx_pool *usc_pool,
 #define AGX_APPLE9_COMPUTE_INDIRECT_LOCAL_CDM_RECORD_SIZE 0x1cu
 #define AGX_APPLE9_RENDER_CONTEXT_BASE UINT64_C(0x1000000000)
 
+/* Offline source-built first compute job. Addresses must be relocated to
+ * actual VM mappings before submission; building does not enable any device. */
+struct agx_apple9_compute_fixture_addresses {
+   uint64_t usc_base, shader_body, resource, launch, output;
+};
+struct agx_apple9_compute_fixture {
+   uint8_t entries[0x400];
+   uint8_t resources[0x100];
+   uint8_t launch[0x400];
+   uint8_t cdm[AGX_APPLE9_COMPUTE_CDM_RECORD_SIZE + 8];
+};
+bool agx_apple9_build_compute_fixture(
+   struct agx_apple9_compute_fixture *out,
+   const struct agx_apple9_compute_fixture_addresses *addresses,
+   const struct agx_apple9_compute_profile *profile);
+
 bool agx_apple9_compute_enabled(const struct agx_device *dev);
 
 size_t agx_apple9_compute_launch_size(

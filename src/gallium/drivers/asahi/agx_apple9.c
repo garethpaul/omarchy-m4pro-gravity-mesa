@@ -359,16 +359,21 @@ agx_apple9_compute_indirect_dispatch_supported(
 static bool apple9_build_body_entry(uint8_t *out, uint64_t entry,
                                     uint64_t body);
 
-void
-agx_apple9_initialize_entries(struct agx_device *dev)
+static void
+apple9_initialize_entry_header(uint8_t *header)
 {
-   uint8_t *header = dev->apple9_entry_map;
    memset(header, 0, AGX_APPLE9_ENTRY_HEADER_SIZE);
    apple9_put_u32(header, AGX_APPLE9_ENTRY_HEADER_SIZE);
    for (unsigned offset = 0x40; offset < AGX_APPLE9_ENTRY_HEADER_SIZE; offset += 2)
       apple9_put_u16(header + offset, 0x0006);
    apple9_fill_helper_table(header, 0x100, 10);
    apple9_fill_helper_table(header, 0x200, 10);
+}
+
+void
+agx_apple9_initialize_entries(struct agx_device *dev)
+{
+   apple9_initialize_entry_header(dev->apple9_entry_map);
    agx_bo_note_cpu_write(dev->apple9_entries, 0, AGX_APPLE9_ENTRY_HEADER_SIZE);
 }
 
@@ -776,6 +781,73 @@ apple9_build_body_entry(uint8_t *out, uint64_t entry, uint64_t body)
       return false;
    memcpy(out, packed.bytes, packed.length);
    apple9_put_u32(out + packed.length, 0x0e); /* No active lanes: terminate. */
+   return true;
+}
+
+/* Offline first-job template, using the same entry/launch/CDM encoders as
+ * the runtime. This neither selects a GPU profile nor submits any work. */
+bool
+agx_apple9_build_compute_fixture(
+   struct agx_apple9_compute_fixture *out,
+   const struct agx_apple9_compute_fixture_addresses *addresses,
+   const struct agx_apple9_compute_profile *profile)
+{
+   if (!out || !addresses || !profile ||
+       profile->abi != AGX_APPLE9_COMPUTE_ABI_DIRECT_BUFFERS ||
+       profile->resource_binding_count != 1 || profile->resource_binding[0] != 0 ||
+       profile->resource_kind[0] != AGX_APPLE9_COMPUTE_RESOURCE_SSBO ||
+       profile->resource_read_mask != 0 || profile->resource_write_mask != 1 ||
+       profile->variable_local_size || profile->local_size[0] != 256 ||
+       profile->local_size[1] != 1 || profile->local_size[2] != 1 ||
+       profile->preamble_size || profile->scratch_size ||
+       profile->required_threadgroup_memory_bytes || profile->atomic_frame_size ||
+       addresses->usc_base != (UINT64_C(1) << 40) ||
+       addresses->shader_body < addresses->usc_base + sizeof(out->entries) ||
+       addresses->shader_body - addresses->usc_base >= UINT64_C(0x100000000) ||
+       (addresses->shader_body & 63) || (addresses->resource & 63) ||
+       (addresses->launch & 63) || (addresses->output & 3) ||
+       addresses->resource < addresses->usc_base + sizeof(out->entries) ||
+       addresses->resource > addresses->usc_base + UINT64_C(0x100000000) - sizeof(out->resources) ||
+       addresses->launch < addresses->usc_base + sizeof(out->entries) ||
+       addresses->launch > addresses->usc_base + UINT64_C(0x100000000) - sizeof(out->launch) ||
+       (addresses->resource < addresses->launch + sizeof(out->launch) &&
+        addresses->launch < addresses->resource + sizeof(out->resources)) ||
+       addresses->shader_body == addresses->resource ||
+       addresses->shader_body == addresses->launch ||
+       !addresses->output || addresses->output > (UINT64_C(1) << 42) - 1024 ||
+       (addresses->output < addresses->usc_base + UINT64_C(0x100000000) &&
+        addresses->usc_base < addresses->output + 1024))
+      return false;
+
+   _Alignas(8) struct agx_apple9_compute_fixture image = {0};
+   apple9_initialize_entry_header(image.entries);
+   const unsigned block = AGX_APPLE9_ENTRY_HEADER_SIZE;
+   const unsigned entry = block + AGX_APPLE9_ENTRY_CODE_OFFSET;
+   apple9_put_u32(image.entries + block, AGX_APPLE9_ENTRY_BLOCK_SIZE);
+   apple9_build_sentinel_constant_program(image.entries + block + 0x40, 30);
+   if (!apple9_build_body_entry(image.entries + entry,
+                                addresses->usc_base + entry,
+                                addresses->shader_body))
+      return false;
+
+   const struct agx_apple9_compute_geometry geometry = {
+      .mode = AGX_APPLE9_COMPUTE_GEOMETRY_DIRECT,
+      .threads = {256, 1, 1}, .local = {256, 1, 1},
+   };
+   if (!agx_apple9_build_compute_geometry_fields(
+          image.resources, sizeof(image.resources), addresses->resource,
+          &geometry))
+      return false;
+   apple9_put_u64(image.resources + 8, addresses->output);
+   if (!apple9_build_compute_launch(image.launch, addresses->usc_base,
+                                    addresses->launch, addresses->resource,
+                                    entry, profile, 0) ||
+       !agx_apple9_emit_direct_dispatch(image.cdm, addresses->launch,
+                                       geometry.threads, geometry.local, profile))
+      return false;
+   agx_pack(image.cdm + AGX_APPLE9_COMPUTE_CDM_RECORD_SIZE,
+            CDM_STREAM_TERMINATE, _) ;
+   *out = image;
    return true;
 }
 

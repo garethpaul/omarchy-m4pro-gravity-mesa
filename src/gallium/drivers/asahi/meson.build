@@ -58,3 +58,37 @@ if with_tests
     protocol : 'gtest',
   )
 endif
+
+# Offline minimal-compute artifact builder. Function sections keep this tool's
+# link limited to pure encoders; runtime device initialization is never called.
+if with_tests and host_machine.system() == 'linux'
+  executable(
+    'agx_apple9_compute_fixture_tool',
+    files('test/apple9-compute-fixture.c', 'agx_apple9.c',
+          'agx_apple9_launch.c', 'agx_apple9_geometry.c'),
+    include_directories : [inc_src, inc_include, inc_asahi, inc_gallium,
+                           inc_gallium_aux, inc_virtio_gpu, inc_virtio_vdrm],
+    c_args : ['-ffunction-sections', '-fdata-sections', '-Wno-c2x-extensions'],
+    link_args : ['-Wl,--gc-sections'],
+    dependencies : [idep_nir, idep_mesautil, idep_agx_pack, idep_libagx],
+    link_with : [libasahi_compiler],
+    install : false,
+  )
+endif
+if with_tests and host_machine.system() == 'linux'
+  test(
+    'agx_apple9_compute_fixture_tests',
+    executable(
+      'agx_apple9_compute_fixture_tests',
+      files('test/test-apple9-compute-fixture.cpp', 'agx_apple9.c',
+            'agx_apple9_launch.c', 'agx_apple9_geometry.c'),
+      include_directories : [inc_src, inc_include, inc_asahi, inc_gallium,
+                             inc_gallium_aux, inc_virtio_gpu, inc_virtio_vdrm],
+      c_args : ['-ffunction-sections', '-fdata-sections', '-Wno-c2x-extensions'],
+      link_args : ['-Wl,--gc-sections'],
+      dependencies : [idep_gtest, idep_nir, idep_mesautil, idep_agx_pack, idep_libagx],
+      link_with : [libasahi_compiler],
+    ),
+    suite : ['asahi'], protocol : 'gtest',
+  )
+endif
