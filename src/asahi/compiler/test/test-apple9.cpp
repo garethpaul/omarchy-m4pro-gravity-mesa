@@ -9105,8 +9105,8 @@ TEST(Apple9Compiler, PrivateArraysUseNativeScratchInAllStages)
                nir_def *f = nir_u2f32(&b, loaded);
                nir_store_output(&b, nir_vec4(&b, f, f, f, nir_imm_float(&b, 1)),
                   nir_imm_int(&b, 0), .write_mask = 15, .src_type = nir_type_float32,
-                  .io_semantics = {.location = stage == MESA_SHADER_VERTEX
-                     ? VARYING_SLOT_POS : FRAG_RESULT_DATA0, .num_slots = 1});
+                  .io_semantics = {.location = static_cast<unsigned>(stage == MESA_SHADER_VERTEX
+                     ? VARYING_SLOT_POS : FRAG_RESULT_DATA0), .num_slots = 1});
                b.shader->info.io_lowered = true;
             }
             agx_shader_part compiled = {};
