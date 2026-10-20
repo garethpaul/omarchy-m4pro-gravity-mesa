@@ -559,6 +559,13 @@ agx_open_device(void *memctx, struct agx_device *dev)
    assert(params_size >= sizeof(dev->params));
 
    assert(dev->params.gpu_generation >= 13);
+   if ((dev->params.gpu_generation == 16 || dev->params.gpu_generation == 17) &&
+       !agx_apple9_runtime_model_supported(dev->params.gpu_generation,
+                                           dev->params.gpu_variant)) {
+      fprintf(stderr, "Unsupported Apple9 runtime model G%u%c\n",
+              dev->params.gpu_generation, dev->params.gpu_variant);
+      return false;
+   }
    const char *variant = " Unknown";
    switch (dev->params.gpu_variant) {
    case 'G':

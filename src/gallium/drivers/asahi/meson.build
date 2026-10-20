@@ -92,3 +92,16 @@ if with_tests and host_machine.system() == 'linux'
     suite : ['asahi'], protocol : 'gtest',
   )
 endif
+if with_tests
+  test(
+    'agx_apple9_runtime_model_tests',
+    executable(
+      'agx_apple9_runtime_model_tests',
+      files('test/test-apple9-model.cpp'),
+      include_directories : [inc_src],
+      cpp_args : ['-DNDEBUG'],
+      dependencies : [idep_gtest],
+    ),
+    suite : ['asahi'], protocol : 'gtest',
+  )
+endif
