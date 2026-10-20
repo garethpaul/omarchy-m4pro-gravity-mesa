@@ -784,6 +784,13 @@ apple9_build_body_entry(uint8_t *out, uint64_t entry, uint64_t body)
    return true;
 }
 
+static bool
+apple9_fixture_spans_overlap(uint64_t a, uint64_t a_size,
+                             uint64_t b, uint64_t b_size)
+{
+   return a < b + b_size && b < a + a_size;
+}
+
 /* Offline first-job template, using the same entry/launch/CDM encoders as
  * the runtime. This neither selects a GPU profile nor submits any work. */
 bool
@@ -804,6 +811,8 @@ agx_apple9_build_compute_fixture(
        addresses->usc_base != (UINT64_C(1) << 40) ||
        addresses->shader_body < addresses->usc_base + sizeof(out->entries) ||
        addresses->shader_body - addresses->usc_base >= UINT64_C(0x100000000) ||
+       !addresses->shader_size ||
+       addresses->shader_size > addresses->usc_base + UINT64_C(0x100000000) - addresses->shader_body ||
        (addresses->shader_body & 63) || (addresses->resource & 63) ||
        (addresses->launch & 63) || (addresses->output & 3) ||
        addresses->resource < addresses->usc_base + sizeof(out->entries) ||
@@ -812,8 +821,10 @@ agx_apple9_build_compute_fixture(
        addresses->launch > addresses->usc_base + UINT64_C(0x100000000) - sizeof(out->launch) ||
        (addresses->resource < addresses->launch + sizeof(out->launch) &&
         addresses->launch < addresses->resource + sizeof(out->resources)) ||
-       addresses->shader_body == addresses->resource ||
-       addresses->shader_body == addresses->launch ||
+       apple9_fixture_spans_overlap(addresses->shader_body, addresses->shader_size,
+                                    addresses->resource, sizeof(out->resources)) ||
+       apple9_fixture_spans_overlap(addresses->shader_body, addresses->shader_size,
+                                    addresses->launch, sizeof(out->launch)) ||
        !addresses->output || addresses->output > (UINT64_C(1) << 42) - 1024 ||
        (addresses->output < addresses->usc_base + UINT64_C(0x100000000) &&
         addresses->usc_base < addresses->output + 1024))

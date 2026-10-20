@@ -23,7 +23,7 @@ addresses()
 {
    return {UINT64_C(0x10000000000), UINT64_C(0x10000010000),
            UINT64_C(0x10000020000), UINT64_C(0x10000020400),
-           UINT64_C(0x1100010000)};
+           UINT64_C(0x1100010000), 42};
 }
 
 static uint32_t
@@ -88,7 +88,7 @@ TEST(Apple9ComputeFixture, RejectsUnsupportedProfileWithoutPublishing)
 TEST(Apple9ComputeFixture, RejectsWrongApertureOrAlignment)
 {
    auto p = profile();
-   for (unsigned test = 0; test < 14; ++test) {
+   for (unsigned test = 0; test < 20; ++test) {
       auto a = addresses();
       if (test == 0) a.usc_base = 0;
       if (test == 1) a.shader_body++;
@@ -104,6 +104,12 @@ TEST(Apple9ComputeFixture, RejectsWrongApertureOrAlignment)
       if (test == 11) a.output = UINT64_MAX & ~3ull;
       if (test == 12) a.output = a.usc_base;
       if (test == 13) a.launch = a.resource + 64;
+      if (test == 14) a.shader_body = a.resource + 64;
+      if (test == 15) a.shader_body = a.launch + 64;
+      if (test == 16) a.shader_size = 0;
+      if (test == 17) { a.shader_body = a.resource - 64; a.shader_size = 128; }
+      if (test == 18) { a.shader_body = a.launch - 64; a.shader_size = 128; }
+      if (test == 19) { a.shader_body = a.usc_base + UINT64_C(0x100000000) - 64; a.shader_size = 128; }
       agx_apple9_compute_fixture out;
       EXPECT_FALSE(agx_apple9_build_compute_fixture(&out, &a, &p));
    }

@@ -21,7 +21,8 @@ ordinary 0x340 header plus one 0xc0 block. The CDM file includes the eight-byte
 terminator; the UAPI bound mirrors `agx_flush_compute` and includes its first
 four bytes.
 
-`agx_apple9_build_compute_fixture` takes explicit addresses so a caller can
+`agx_apple9_build_compute_fixture` takes explicit addresses and the complete
+shader byte length so a caller can
 rebuild the immutable records after allocating real VM mappings. A caller must
 validate the complete mappings, shader length, permissions, ownership, fences,
 CPU/GPU cache synchronization and output/page canaries before submission through

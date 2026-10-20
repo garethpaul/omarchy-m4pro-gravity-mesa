@@ -152,6 +152,8 @@ bool agx_apple9_prepare_draw(struct agx_device *dev, struct agx_pool *usc_pool,
  * actual VM mappings before submission; building does not enable any device. */
 struct agx_apple9_compute_fixture_addresses {
    uint64_t usc_base, shader_body, resource, launch, output;
+   /* Complete uploaded shader extent, not an inferred alignment unit. */
+   uint32_t shader_size;
 };
 struct agx_apple9_compute_fixture {
    uint8_t entries[0x400];

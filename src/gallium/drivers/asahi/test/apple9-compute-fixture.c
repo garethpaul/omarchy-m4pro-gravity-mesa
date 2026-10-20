@@ -52,6 +52,7 @@ main(int argc, char **argv)
       .resource = UINT64_C(0x10000020000),
       .launch = UINT64_C(0x10000020400),
       .output = UINT64_C(0x1100010000),
+      .shader_size = shader.info.binary_size,
    };
    struct agx_apple9_compute_fixture fixture;
    bool ok = agx_apple9_build_compute_fixture(&fixture, &addresses, &profile);
